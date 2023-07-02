@@ -1,0 +1,20 @@
+3.0.0
+-complete makeover again because the old concept isnt optimised enough
+-old  md5 lib was corrupting the memory so i replaced it with another modified version to get rid of the crash!
+-comparing dbs availabe 
+3.0.0a
+-complete makeover
+-added a new scan algo to speed it up! its not going to read the whole file anymore. just 1st block is read and crc32 is calculated. its using sha1 and md5 now
+-changed stat to lstat to get rid of that symlink bug
+2.0.3
+-couple of security fixes in dlink engine
+2.0.2
+-bye bye memcpy - YAY @ more speed
+-added parameter 'v' which shows file version
+-dont follow into -s links any more to fix troubles while scanning at least it shouldnt but somehow it doesnt work over here ???
+2.0.1
+-minor fixes in file finding part to speed it up a bit
+2.0.0
+-ported to posix
+1.0.0
+-windows version created
