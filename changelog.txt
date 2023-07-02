@@ -1,7 +1,11 @@
+4.0.0
+-quiet mode isnt disabled while printing the db. its preventing weedit from printing the headers that way only the db itself is printed
+-removed md5
 3.0.0
 -complete makeover again because the old concept isnt optimised enough
--old  md5 lib was corrupting the memory so i replaced it with another modified version to get rid of the crash!
--comparing dbs availabe 
+-old md5 lib was corrupting the memory so i replaced it with another modified version to get rid of the crash!
+-comparing dbs availabe
+-printing dbs available
 3.0.0a
 -complete makeover
 -added a new scan algo to speed it up! its not going to read the whole file anymore. just 1st block is read and crc32 is calculated. its using sha1 and md5 now

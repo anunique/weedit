@@ -1,8 +1,10 @@
-this is weedit 3.0.0 readme
-weedit is a file duplicate finder thats using checksums to check for duplicates. it got an automaintaining 
-database. weedit will detect if a file disappears or got modified and will update entries on the fly.
-
+this is weedit 4.0.0 readme
+weedit is a duplicate finger thats using sha1 and crc32 to check for duplicates. it got an automaintaining 
+database. weedit will detect if a file disappears out of the db. i may write a more complete readme one day.
 so far have fun playing with it.
+
+bugreports and ideas are always welcome!
+	daniel ( at ) k0o ( dot ) org
 
 feel free to donate to:
 BTC: 17dMvPPcYAznrwrgbWQYf6QNgBpoX7x2f2

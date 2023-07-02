@@ -10,12 +10,13 @@ extern "C" {
 typedef struct _dlink_fnode dlink_fnode;
 typedef struct _dlink_dnode dlink_dnode;
 
+#pragma pack(1)
 struct _dlink_dnode {
 	dlink_dnode *prev;
 	dlink_dnode *next;
+	unsigned long chunkid;
 	unsigned long crc32;
 	unsigned long long fsize;
-	unsigned char md5[16];
 	unsigned char sha1[20];
 	time_t ctime;
 	time_t mtime;
@@ -23,6 +24,7 @@ struct _dlink_dnode {
 	unsigned short fnamelen;
 	unsigned char fname[];
 };
+#pragma pack()
 
 struct _dlink_fnode {
 	dlink_fnode *prev;
