@@ -18,15 +18,15 @@ typedef struct _dlink_dnode dlink_dnode;
 struct _dlink_dnode {
 	dlink_dnode *prev;
 	dlink_dnode *next;
-	unsigned long chunkid;
-	unsigned long crc32;
-	unsigned long long fsize;
+	u_int32_t chunkid;
+	u_int32_t crc32;
+	u_int64_t fsize;
 	unsigned char sha1[20];
 	time_t ctime;
 	time_t mtime;
 	unsigned long fnamecrc;
 	unsigned short fnamelen;
-	unsigned char fname[];
+	char fname[];
 };
 #pragma pack()
 

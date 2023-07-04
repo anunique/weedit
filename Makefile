@@ -6,7 +6,7 @@
 
 SHELL	= /bin/sh
 CC	= cc
-CFLAGS	= -g -fstack-check
+CFLAGS	= -g -fstack-check -Wall
 LIBS	=
 TARGET	= weedit
 OBJS	= src/crc32.o src/sha1.o src/weedit.o src/io.c

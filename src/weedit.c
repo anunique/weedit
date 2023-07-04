@@ -22,6 +22,7 @@ char *id = "\n\n\n\n\n-CW was here-\n\n\n\n";
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include "../include/structs.h"
 #include "../include/io.h"
@@ -34,7 +35,7 @@ u_int64_t bytes, bytes2, dupes;
 dlink_dlist *checksum;
 dlink_flist *fname;
 
-void myerror(__int32_t errcode, const __int8_t *bla, ...)
+void myerror(__int32_t errcode, const char *bla, ...)
 {
 	char buffer[1024];
 	va_list args;
@@ -55,7 +56,8 @@ void checkdir(weedit_db *db, char *cwd)
 	dlink_fnode *fnode, *fnode2;
 	SHA1_CTX sha1;
 	u_int8_t dupe;
-	u_int8_t tmp[5000];
+	//u_int8_t tmp[5000];
+	char tmp[5000];
 	u_int16_t entryptr, entryptr2;
 	u_int32_t value, value2;
 	u_int64_t fsize, fsize2;
@@ -408,7 +410,7 @@ _forcescan:
 	goto _dnodes;
 }
 
-void usage(u_int8_t *fname)
+void usage(char *fname)
 {
 	printf("USAGE: %s -cdflnpqstuv [[DB1] [DB2]] [db to load] [db to save] [directory to scan]\n", fname);
 	printf("\tc [DB1] [DB2]= compare DB1 with DB2\n");
@@ -425,28 +427,24 @@ void usage(u_int8_t *fname)
 	exit(-1);
 }
 
-int main(unsigned int argc, u_int8_t **argv)
+int main(int argc, char **argv)
 {
-	u_int8_t home[5000];
-	u_int8_t tmp[5000];
-	u_int8_t *paramv, paramn;
-	u_int8_t *load = 0, *save = 0;
-	u_int8_t *db1 = 0, *db2 = 0;
+	char home[5000];
+	char tmp[5000];
+	char *paramv;
+	int paramn;
+	char *load = 0, *save = 0;
+	char *db1 = 0, *db2 = 0;
 	u_int8_t truncatedb = 0, noadd = 0, deldupesfromdb = 0, printdb = 0, comparedb = 0;
-	u_int8_t *db;
-	u_int8_t *dir_to_scan = 0;
-	u_int8_t *fnodes, *cnodes;
-	u_int16_t datasize;
-	u_int16_t entryptr, entryptr2;
+	char *dir_to_scan = 0;
 	u_int32_t i;
 	u_int32_t oldcrc32;
-	u_int64_t files, files2, checksums, oldfsize;
+	u_int64_t files, files2;
 	float timeval;
 	struct timeval timer1, timer2;
 	FILE *hFile, *hFile2;
 	dlink_dnode *dnode, *dnode2;
-	size_t offset;
-	dlink_fnode *fnode, *fnode2;
+	dlink_fnode *fnode;
 	if (argc < 2)
 		usage(argv[0]);
 	quiet = 0;
@@ -810,12 +808,12 @@ int main(unsigned int argc, u_int8_t **argv)
 				{
 					printf("%08X | ", dnode->chunkid);
 					printf("%08X | ", dnode->crc32);
-					printf("%016X | ", dnode->fsize);
+					printf("%016"PRIx64" | ", dnode->fsize);
 					for (i = 0; i < 20; i++)
 						printf("%02X", dnode->sha1[i]);
 					printf(" | ");
-					printf("%016X | ", dnode->ctime);
-					printf("%016X | ", dnode->mtime);
+					printf("%016"PRIx64" | ", dnode->ctime);
+					printf("%016"PRIx64" | ", dnode->mtime);
 					printf("%s\n", dnode->fname);
 				}
 		}
@@ -834,7 +832,7 @@ int main(unsigned int argc, u_int8_t **argv)
 	{
 		gettimeofday(&timer2, 0);
 		timeval = (float)(timer2.tv_sec - timer1.tv_sec) + ((float)(timer2.tv_usec - timer1.tv_usec) / 1000000);
-		printf("\n\n%'llu bytes scanned - %'llu bytes processed - %'llu entries - %'llu dupes - needed time: %f seconds\n", bytes, bytes2, files, dupes, timeval);
+		printf("\n\n%"PRIu64" bytes scanned - %"PRIu64" bytes processed - %"PRIu64" entries - %"PRIu64" dupes - needed time: %f seconds\n", bytes, bytes2, files, dupes, timeval);
 		printf("Scanspeed: %f MB per second\n", (float)bytes / timeval / 1000000);
 	}
 	exit(0);
