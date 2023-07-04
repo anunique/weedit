@@ -5,9 +5,6 @@
 char *ver = "\nWeedIt 3.0.0 by daniel (at) k0o (dot) org\n";
 char *id = "\n\n\n\n\n-CW was here-\n\n\n\n";
 
-#define CHUNK_SIZE 65536
-#define TABLE_SIZE 65536
-#define TABLE_MASK (TABLE_SIZE - 1)
 #define __USE_LARGEFILE64
 #define _LARGEFILE_SOURCE
 #define _LARGEFILE64_SOURCE
@@ -448,7 +445,6 @@ int main(unsigned int argc, u_int8_t **argv)
 	dlink_fnode *fnode, *fnode2;
 	if (argc < 2)
 		usage(argv[0]);
-	gettimeofday(&timer1, 0);
 	quiet = 0;
 	deldupes = 0;
 	forcescan = 0;
@@ -459,8 +455,9 @@ int main(unsigned int argc, u_int8_t **argv)
 		paramn++;
 		while (*paramv++)
 		{
-			if (*paramv == 'c')
+			switch (*paramv)
 			{
+			case 'c':
 				comparedb = 1;
 				if (paramn == argc)
 					usage(argv[0]);
@@ -470,33 +467,46 @@ int main(unsigned int argc, u_int8_t **argv)
 					usage(argv[0]);
 				else
 					db2 = argv[paramn++];
-			}
-			if (*paramv == 'd')
+				break;
+			case 'd':
 				deldupesfromdb = 1;
-			if (*paramv == 'f')
+				break;
+			case 'f':
 				forcescan = 1;
-			if (*paramv == 'l')
+				break;
+			case 'l':
 				if (paramn == argc)
 					usage(argv[0]);
 				else
 					load = argv[paramn++];
-			if (*paramv == 'n')
+				break;
+			case 'n':
 				noadd = 1;
-			if (*paramv == 'p')
+				break;
+			case 'p':
 				printdb = 1;
-			if (*paramv == 'q')
+				break;
+			case 'q':
 				quiet = 1;
-			if (*paramv == 's')
+				break;
+			case 's':
 				if (paramn == argc)
 					usage(argv[0]);
 				else
 					save = argv[paramn++];
-			if (*paramv == 't')
+				break;
+			case 't':
 				truncatedb = 1;
-			if (*paramv == 'u')
+				break;
+			case 'u':
 				deldupes = 1;
-			if (*paramv == 'v')
+				break;
+			case 'v':
 				printf("Version: %s", ver);
+				break;
+			default:
+				usage(argv[0]);
+			}
 		}
 	}
 	if ((paramn == argc) && !deldupesfromdb && !printdb && !comparedb)
@@ -554,6 +564,7 @@ int main(unsigned int argc, u_int8_t **argv)
 			printf("Be quiet              : NO\n-----------------------------------------------\nDUPE List:\n");
 		}
 	}
+	gettimeofday(&timer1, 0);
 	if (comparedb)
 	{
 		dnode = (dlink_dnode *)calloc(1, CHUNK_SIZE);

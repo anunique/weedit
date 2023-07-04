@@ -7,6 +7,10 @@ extern "C" {
 
 #include <sys/types.h>
 
+#define CHUNK_SIZE 65536
+#define TABLE_SIZE 65536
+#define TABLE_MASK (TABLE_SIZE - 1)
+
 typedef struct _dlink_fnode dlink_fnode;
 typedef struct _dlink_dnode dlink_dnode;
 
