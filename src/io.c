@@ -168,11 +168,10 @@ void *load_db(weedit_db *db, char *dbname)
 
 void *save_db(weedit_db *db, char *dbname)
 {
-    dlink_dnode *dnode;
     u_int64_t files = 0, checksums;
     FILE *hFile;
     u_int32_t i;
-    for (dnode = db->checksum.head; dnode != NULL; dnode = dnode->next)
+    for (dlink_dnode *dnode = db->checksum.head; dnode != NULL; dnode = dnode->next)
         if (dnode->fnamelen)
             files++;
 
@@ -195,7 +194,7 @@ void *save_db(weedit_db *db, char *dbname)
         return "FATAL: unable to createa db!";
     if (fwrite(&files, sizeof(u_int64_t), 1, hFile) != 1)
         return "FATAL: unable to createa db!";
-    for (dnode = db->checksum.head; dnode != NULL; dnode = dnode->next)
+    for (dlink_dnode *dnode = db->checksum.head; dnode != NULL; dnode = dnode->next)
         if (dnode->fnamelen)
         {
             if (checksums == 0)

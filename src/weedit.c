@@ -32,8 +32,6 @@ char *id = "\n\n\n\n\n-CW was here-\n\n\n\n";
 u_int8_t quiet, deldupes, forcescan;
 u_int8_t *buf;
 u_int64_t bytes, bytes2, dupes;
-dlink_dlist *checksum;
-dlink_flist *fname;
 
 void myerror(__int32_t errcode, const char *bla, ...)
 {
@@ -56,14 +54,14 @@ void checkdir(weedit_db *db, char *cwd)
 	dlink_fnode *fnode, *fnode2;
 	SHA1_CTX sha1;
 	u_int8_t dupe;
-	//u_int8_t tmp[5000];
 	char tmp[5000];
 	u_int16_t entryptr, entryptr2;
 	u_int32_t value, value2;
 	u_int64_t fsize, fsize2;
 	struct dirent *de;
 	struct stat64 stat_buf, stat_buf2;
-
+	dlink_dlist *checksum = &db->checksum;
+	dlink_flist *fname = &db->fname;
 	dlink_dnode **checksumptr = db->checksumptr;
 	dlink_fnode **fnameptr = db->fnameptr;
 
@@ -445,6 +443,8 @@ int main(int argc, char **argv)
 	FILE *hFile, *hFile2;
 	dlink_dnode *dnode, *dnode2;
 	dlink_fnode *fnode;
+	dlink_dlist *checksum;
+	dlink_flist *fname;
 	if (argc < 2)
 		usage(argv[0]);
 	quiet = 0;
@@ -569,17 +569,19 @@ int main(int argc, char **argv)
 			printf("Be quiet              : NO\n-----------------------------------------------\nDUPE List:\n");
 		}
 	}
-/////////////////////////////////////////////////////////////////	
+
 	weedit_db *weedit_db1;
 	weedit_db1 = calloc(1, sizeof(weedit_db));
 	if (weedit_db1 == 0)
 	{
 		myerror(-1, "FATAL: out of memory");
 	}
+
 	dlink_dnode **checksumptr = weedit_db1->checksumptr;
 	dlink_fnode **fnameptr = weedit_db1->fnameptr;
-//////////////////////////////////////////////////////////////////
+
 	gettimeofday(&timer1, 0);
+
 	if (comparedb) //TODO: FIX THIS STUFF, JUST LOAD 2 DBS AND COMPARE EM, LETS NOT BOTHER FOR NOW
 	{
 		dnode = (dlink_dnode *)calloc(1, CHUNK_SIZE);
@@ -803,23 +805,23 @@ int main(int argc, char **argv)
 		{
 			if (!quiet)
 				printf("CHUNKID  | CRC32    | Filesize         | SHA1                                     | StatusChangeTime | ModificationTime | Filename\n");
-			for (dnode = checksum->head; dnode != NULL; dnode = dnode->next)
-				if (dnode->fnamelen)
+			for (dlink_dnode *node = checksum->head; node != NULL; node = node->next)
+				if (node->fnamelen)
 				{
-					printf("%08X | ", dnode->chunkid);
-					printf("%08X | ", dnode->crc32);
-					printf("%016"PRIx64" | ", dnode->fsize);
+					printf("%08X | ", node->chunkid);
+					printf("%08X | ", node->crc32);
+					printf("%016"PRIx64" | ", node->fsize);
 					for (i = 0; i < 20; i++)
-						printf("%02X", dnode->sha1[i]);
+						printf("%02X", node->sha1[i]);
 					printf(" | ");
-					printf("%016"PRIx64" | ", dnode->ctime);
-					printf("%016"PRIx64" | ", dnode->mtime);
-					printf("%s\n", dnode->fname);
+					printf("%016"PRIx64" | ", node->ctime);
+					printf("%016"PRIx64" | ", node->mtime);
+					printf("%s\n", node->fname);
 				}
 		}
 		files = 0;
-		for (dnode = checksum->head; dnode != NULL; dnode = dnode->next)
-			if (dnode->fnamelen)
+		for (dlink_dnode *node = checksum->head; node != NULL; node = node->next)
+			if (node->fnamelen)
 				files++;
 		if (!noadd)
 		{
@@ -835,5 +837,5 @@ int main(int argc, char **argv)
 		printf("\n\n%"PRIu64" bytes scanned - %"PRIu64" bytes processed - %"PRIu64" entries - %"PRIu64" dupes - needed time: %f seconds\n", bytes, bytes2, files, dupes, timeval);
 		printf("Scanspeed: %f MB per second\n", (float)bytes / timeval / 1000000);
 	}
-	exit(0);
+	return 0;
 }

@@ -1,6 +1,7 @@
-4.0.0
+4.0.0-dev
 -quiet mode isnt disabled while printing the db. its preventing weedit from printing the headers that way only the db itself is printed
 -removed md5
+-go check github commits from this point
 3.0.0
 -complete makeover again because the old concept isnt optimised enough
 -old md5 lib was corrupting the memory so i replaced it with another modified version to get rid of the crash!
