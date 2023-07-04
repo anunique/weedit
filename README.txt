@@ -23,3 +23,6 @@ USAGE: ./weedit -cdflnpqstuv [[DB1] [DB2]] [db to load] [db to save] [directory 
         t = truncate database (dont load it)
         u = unlink (delete) new dupes
         v = show version information
+
+
+bleh
