@@ -9,7 +9,7 @@ CC	= gcc
 CFLAGS	= -g -fstack-check
 LIBS	=
 TARGET	= weedit
-OBJS	= src/crc32.o src/sha1.o src/weedit.o
+OBJS	= src/crc32.o src/sha1.o src/weedit.o src/io.c
 all:	$(OBJS)
 	$(CC) -o $(TARGET) $(CFLAGS) $(OBJS) $(LIBS)
 	rm -f src/*.o

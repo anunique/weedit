@@ -46,6 +46,14 @@ typedef struct {
 	dlink_fnode *tail;
 } dlink_flist;
 
+typedef struct {
+	dlink_flist fname;
+	dlink_dlist checksum;
+	dlink_dnode *checksumptr[TABLE_SIZE];
+	dlink_fnode *fnameptr[TABLE_SIZE];
+} weedit_db;
+
+
 #ifdef __cplusplus
 }
 #endif

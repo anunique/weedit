@@ -2,7 +2,7 @@
 // no i wont add comments - CW
 // TODO: scan for TODO
 
-char *ver = "\nWeedIt 3.0.0 by daniel (at) k0o (dot) org\n";
+char *ver = "\nWeedIt 4.0.0-dev by daniel (at) k0o (dot) org\n";
 char *id = "\n\n\n\n\n-CW was here-\n\n\n\n";
 
 #define __USE_LARGEFILE64
@@ -24,6 +24,7 @@ char *id = "\n\n\n\n\n-CW was here-\n\n\n\n";
 #include <unistd.h>
 
 #include "../include/structs.h"
+#include "../include/io.h"
 #include "../include/crc32.h"
 #include "../include/sha1.h"
 
@@ -32,8 +33,6 @@ u_int8_t *buf;
 u_int64_t bytes, bytes2, dupes;
 dlink_dlist *checksum;
 dlink_flist *fname;
-dlink_dnode *checksumptr[TABLE_SIZE];
-dlink_fnode *fnameptr[TABLE_SIZE];
 
 void myerror(__int32_t errcode, const __int8_t *bla, ...)
 {
@@ -47,7 +46,7 @@ void myerror(__int32_t errcode, const __int8_t *bla, ...)
 		exit(-1);
 }
 
-void checkdir(char *cwd)
+void checkdir(weedit_db *db, char *cwd)
 {
 	DIR *dir;
 	FILE *hFile;
@@ -62,6 +61,10 @@ void checkdir(char *cwd)
 	u_int64_t fsize, fsize2;
 	struct dirent *de;
 	struct stat64 stat_buf, stat_buf2;
+
+	dlink_dnode **checksumptr = db->checksumptr;
+	dlink_fnode **fnameptr = db->fnameptr;
+
 	dir = fdopendir(open(cwd, O_RDONLY));
 	if (NULL == dir)
 	{
@@ -84,7 +87,7 @@ _readdir:
 	if (S_ISDIR(stat_buf.st_mode))
 	{
 		if (strcmp(de->d_name, "..") && strcmp(de->d_name, "."))
-			checkdir(tmp);
+			checkdir(db, tmp);
 		goto _readdir;
 	}
 	if (!S_ISREG(stat_buf.st_mode))
@@ -431,6 +434,7 @@ int main(unsigned int argc, u_int8_t **argv)
 	u_int8_t *db1 = 0, *db2 = 0;
 	u_int8_t truncatedb = 0, noadd = 0, deldupesfromdb = 0, printdb = 0, comparedb = 0;
 	u_int8_t *db;
+	u_int8_t *dir_to_scan = 0;
 	u_int8_t *fnodes, *cnodes;
 	u_int16_t datasize;
 	u_int16_t entryptr, entryptr2;
@@ -453,7 +457,7 @@ int main(unsigned int argc, u_int8_t **argv)
 	if (*paramv == '-')
 	{
 		paramn++;
-		while (*paramv++)
+		while (*++paramv)
 		{
 			switch (*paramv)
 			{
@@ -509,6 +513,8 @@ int main(unsigned int argc, u_int8_t **argv)
 			}
 		}
 	}
+	if (paramn < argc)
+		dir_to_scan = argv[paramn];
 	if ((paramn == argc) && !deldupesfromdb && !printdb && !comparedb)
 		usage(argv[0]);
 	if (!load)
@@ -532,13 +538,14 @@ int main(unsigned int argc, u_int8_t **argv)
 		{
 			printf("Load DB               : %s\n", load);
 			printf("Save DB as            : %s\n", save);
+			if (dir_to_scan)
+				printf("Directory to scan     : %s\n", dir_to_scan);
 			if (deldupesfromdb)
 			{
 				printf("Delete dupes from DB   : YES\n");
 			}
 			else
 			{
-				printf("Directory to scan     : %s\n", argv[argc - 1]);
 				printf("Delete dupes from DB  : NO\n");
 			}
 			if (truncatedb)
@@ -564,8 +571,18 @@ int main(unsigned int argc, u_int8_t **argv)
 			printf("Be quiet              : NO\n-----------------------------------------------\nDUPE List:\n");
 		}
 	}
+/////////////////////////////////////////////////////////////////	
+	weedit_db *weedit_db1;
+	weedit_db1 = calloc(1, sizeof(weedit_db));
+	if (weedit_db1 == 0)
+	{
+		myerror(-1, "FATAL: out of memory");
+	}
+	dlink_dnode **checksumptr = weedit_db1->checksumptr;
+	dlink_fnode **fnameptr = weedit_db1->fnameptr;
+//////////////////////////////////////////////////////////////////
 	gettimeofday(&timer1, 0);
-	if (comparedb)
+	if (comparedb) //TODO: FIX THIS STUFF, JUST LOAD 2 DBS AND COMPARE EM, LETS NOT BOTHER FOR NOW
 	{
 		dnode = (dlink_dnode *)calloc(1, CHUNK_SIZE);
 		if (!dnode)
@@ -685,159 +702,16 @@ int main(unsigned int argc, u_int8_t **argv)
 	}
 	else
 	{
-		for (i = 0; i < TABLE_SIZE; i++)
-		{
-			checksumptr[i] = 0;
-			fnameptr[i] = 0;
-		}
-		fname = (dlink_flist *)calloc(1, sizeof(dlink_flist));
-		if (!fname)
-			myerror(-1, "FATAL: out of memory");
-		checksum = (dlink_dlist *)calloc(1, sizeof(dlink_dlist));
-		if (!checksum)
-			myerror(-1, "FATAL: out of memory");
+		fname = &weedit_db1->fname;
+		checksum = &weedit_db1->checksum;
 		dupes = 0;
 		bytes = 0;
 		bytes2 = 0;
 		if (!truncatedb)
 		{
-			if (hFile = fopen(load, "rb"))
-			{
-				if (!fread(tmp, 8, 1, hFile))
-					myerror(-1, "FATAL: unable to open db!");
-				if (memcmp(&tmp, "WEEDIT\4\0", 8))
-					myerror(-1, "FATAL: db incompatible!");
-				if (!fread(&i, 4, 1, hFile))
-					myerror(-1, "FATAL: unable to open db!");
-				if (i != 0x01020304)
-					myerror(-1, "FATAL: incompatible endian!");
-				if (fgetc(hFile) != sizeof(void *))
-					myerror(-1, "FATAL: sizeof(void *) incompatible!");
-				if (fgetc(hFile) != sizeof(time_t))
-					myerror(-1, "FATAL: sizeof(time_t) incompatible!");
-				if (fgetc(hFile) != 'C')
-					myerror(-1, "FATAL: db incompatible!");
-				if (fgetc(hFile) != 'W')
-					myerror(-1, "FATAL: db incompatible!");
-				if (!fread(&files, sizeof(u_int64_t), 1, hFile))
-					myerror(-1, "FATAL: unable to open db!");
-				if (files)
-				{
-					if (!fread(&datasize, sizeof(u_int16_t), 1, hFile))
-						myerror(-1, "FATAL: unable to open db!");
-					fnode2 = (dlink_fnode *)calloc(1, sizeof(dlink_fnode));
-					if (!fnode2)
-						myerror(-1, "Fatal: out of memory");
-					dnode2 = (dlink_dnode *)calloc(1, sizeof(dlink_dnode) + datasize);
-					if (!dnode2)
-						myerror(-1, "Fatal: out of memory");
-					fnode2->data = dnode2;
-					dnode2->fnamelen = datasize;
-					if (!fread(&dnode2->fnamecrc, sizeof(u_int32_t), 1, hFile))
-						myerror(-1, "FATAL: unable to open db!");
-					if (!fread(&dnode2->chunkid, sizeof(u_int32_t), 1, hFile))
-						myerror(-1, "FATAL: unable to open db!");
-					if (!fread(&dnode2->crc32, sizeof(u_int32_t), 1, hFile))
-						myerror(-1, "FATAL: unable to open db!");
-					if (!fread(&dnode2->fsize, sizeof(u_int64_t), 1, hFile))
-						myerror(-1, "FATAL: unable to open db!");
-					if (!fread(&dnode2->ctime, sizeof(time_t), 1, hFile))
-						myerror(-1, "FATAL: unable to open db!");
-					if (!fread(&dnode2->mtime, sizeof(time_t), 1, hFile))
-						myerror(-1, "FATAL: unable to open db!");
-					if (!fread(&dnode2->sha1, 20, 1, hFile))
-						myerror(-1, "FATAL: unable to open db!");
-					if (!fread(&dnode2->fname, datasize, 1, hFile))
-						myerror(-1, "FATAL: unable to open db!");
-					fname->head = fnode2;
-					fname->tail = fnode2;
-					fnameptr[0] = fnode2;
-					entryptr = (dnode2->fnamecrc & 0xffff0000) >> 16;
-					fnameptr[entryptr] = fnode2;
-					checksum->head = dnode2;
-					checksumptr[0] = dnode2;
-					entryptr = (dnode2->crc32 & 0xffff0000) >> 16;
-					checksumptr[entryptr] = dnode2;
-					files--;
-					while (files)
-					{
-						if (!fread(&datasize, sizeof(u_int16_t), 1, hFile))
-							myerror(-1, "FATAL: unable to open db!");
-						fnode = (dlink_fnode *)calloc(1, sizeof(dlink_fnode));
-						if (!fnode)
-							myerror(-1, "Fatal: out of memory");
-						dnode = (dlink_dnode *)calloc(1, sizeof(dlink_dnode) + datasize);
-						if (!dnode)
-							myerror(-1, "Fatal: out of memory");
-						fnode->data = dnode;
-						dnode->fnamelen = datasize;
-						if (!fread(&dnode->fnamecrc, sizeof(u_int32_t), 1, hFile))
-							myerror(-1, "FATAL: unable to open db!");
-						if (!fread(&dnode->chunkid, sizeof(u_int32_t), 1, hFile))
-							myerror(-1, "FATAL: unable to open db!");
-						if (!fread(&dnode->crc32, sizeof(u_int32_t), 1, hFile))
-							myerror(-1, "FATAL: unable to open db!");
-						if (!fread(&dnode->fsize, sizeof(u_int64_t), 1, hFile))
-							myerror(-1, "FATAL: unable to open db!");
-						if (!fread(&dnode->ctime, sizeof(time_t), 1, hFile))
-							myerror(-1, "FATAL: unable to open db!");
-						if (!fread(&dnode->mtime, sizeof(time_t), 1, hFile))
-							myerror(-1, "FATAL: unable to open db!");
-						if (!fread(&dnode->sha1, 20, 1, hFile))
-							myerror(-1, "FATAL: unable to open db!");
-						if (!fread(&dnode->fname, datasize, 1, hFile))
-							myerror(-1, "FATAL: unable to open db!");
-						entryptr = (dnode->crc32 & 0xffff0000) >> 16;
-						if (!checksumptr[entryptr])
-							checksumptr[entryptr] = dnode;
-						dnode2->next = dnode;
-						dnode->prev = dnode2;
-						entryptr = (dnode->fnamecrc & 0xffff0000) >> 16;
-						entryptr2 = entryptr;
-						while (!fnameptr[entryptr2])
-							entryptr2--;
-						fnode2 = fnameptr[entryptr2];
-						while (1)
-						{
-							if (dnode->fnamecrc < fnode2->data->fnamecrc)
-							{
-								if (fnode2 == fnameptr[entryptr] || !fnameptr[entryptr])
-									fnameptr[entryptr] = fnode;
-								if (fname->head == fnode2)
-								{
-									fnode->next = fname->head;
-									fnode->next->prev = fnode;
-									fname->head = fnode;
-									fnameptr[0] == fnode;
-								}
-								else
-								{
-									if (fnode2->prev)
-										fnode2->prev->next = fnode;
-									fnode->next = fnode2;
-									fnode->prev = fnode2->prev;
-									fnode2->prev = fnode;
-								}
-								break;
-							}
-							fnode2 = fnode2->next;
-							if (!fnode2)
-							{
-								fnode->prev = fname->tail;
-								fnode->prev->next = fnode;
-								fname->tail = fnode;
-								if (!fnameptr[entryptr])
-									fnameptr[entryptr] = fnode;
-								break;
-							}
-						}
-						dnode2 = dnode;
-						files--;
-					}
-				}
-				checksum->tail = dnode2;
-				fclose(hFile);
-			}
+			void *error = load_db(weedit_db1, load);
+			if (error)
+				myerror(-1, error);
 		}
 		if (!fname->head)
 		{
@@ -855,7 +729,7 @@ int main(unsigned int argc, u_int8_t **argv)
 			checksum->tail = dnode;
 			checksumptr[0] = dnode;
 		}
-		if (paramn != argc)
+		if (dir_to_scan)
 		{
 			if (!(buf = (u_int8_t *)malloc(CHUNK_SIZE)))
 			{
@@ -863,13 +737,13 @@ int main(unsigned int argc, u_int8_t **argv)
 				exit(-1);
 			}
 			getcwd(home, sizeof(home));
-			if (chdir(argv[argc - 1]))
+			if (chdir(dir_to_scan))
 			{
-				myerror(0, "ERROR: Directory '%s' not found!!!\n", argv[argc - 1]);
+				myerror(0, "ERROR: Directory '%s' not found!!!\n", dir_to_scan);
 				exit(-1);
 			}
 			getcwd(tmp, sizeof(tmp));
-			checkdir(tmp);
+			checkdir(weedit_db1, tmp);
 			chdir(home);
 		}
 		if (deldupesfromdb)
@@ -940,13 +814,7 @@ int main(unsigned int argc, u_int8_t **argv)
 					for (i = 0; i < 20; i++)
 						printf("%02X", dnode->sha1[i]);
 					printf(" | ");
-					snprintf(tmp, sizeof(tmp), "%s", ctime(&dnode->ctime));
-					tmp[strlen(tmp) - 1] = 0;
-					// printf("%s | ", tmp);
 					printf("%016X | ", dnode->ctime);
-					snprintf(tmp, sizeof(tmp), "%s", ctime(&dnode->mtime));
-					tmp[strlen(tmp) - 1] = 0;
-					// printf("%s | ", tmp);
 					printf("%016X | ", dnode->mtime);
 					printf("%s\n", dnode->fname);
 				}
@@ -956,51 +824,11 @@ int main(unsigned int argc, u_int8_t **argv)
 			if (dnode->fnamelen)
 				files++;
 		if (!noadd)
-			if (hFile = fopen(save, "wb"))
-			{
-				checksums = files;
-				if (fwrite("WEEDIT\4\0", 8, 1, hFile) != 1)
-					myerror(-1, "FATAL: unable to createa db!");
-				i = 0x01020304;
-				if (fwrite(&i, 4, 1, hFile) != 1)
-					myerror(-1, "FATAL: unable to createa db!");
-				if (fputc(sizeof(void *), hFile) != sizeof(void *))
-					myerror(-1, "FATAL: unable to createa db!");
-				if (fputc(sizeof(time_t), hFile) != sizeof(time_t))
-					myerror(-1, "FATAL: unable to createa db!");
-				if (fputc('C', hFile) != 'C')
-					myerror(-1, "FATAL: unable to createa db!");
-				if (fputc('W', hFile) != 'W')
-					myerror(-1, "FATAL: unable to createa db!");
-				if (fwrite(&files, sizeof(u_int64_t), 1, hFile) != 1)
-					myerror(-1, "FATAL: unable to createa db!");
-				for (dnode = checksum->head; dnode != NULL; dnode = dnode->next)
-					if (dnode->fnamelen)
-					{
-						if (checksums == 0)
-							myerror(-1, "FATAL: db writing error!");
-						checksums--;
-						if (fwrite(&dnode->fnamelen, sizeof(u_int16_t), 1, hFile) != 1)
-							myerror(-1, "FATAL: unable to createa db!");
-						if (fwrite(&dnode->fnamecrc, sizeof(u_int32_t), 1, hFile) != 1)
-							myerror(-1, "FATAL: unable to createa db!");
-						if (fwrite(&dnode->chunkid, sizeof(u_int32_t), 1, hFile) != 1)
-							myerror(-1, "FATAL: unable to createa db!");
-						if (fwrite(&dnode->crc32, sizeof(u_int32_t), 1, hFile) != 1)
-							myerror(-1, "FATAL: unable to createa db!");
-						if (fwrite(&dnode->fsize, sizeof(u_int64_t), 1, hFile) != 1)
-							myerror(-1, "FATAL: unable to createa db!");
-						if (fwrite(&dnode->ctime, sizeof(time_t), 1, hFile) != 1)
-							myerror(-1, "FATAL: unable to createa db!");
-						if (fwrite(&dnode->mtime, sizeof(time_t), 1, hFile) != 1)
-							myerror(-1, "FATAL: unable to createa db!");
-						if (fwrite(&dnode->sha1, 20, 1, hFile) != 1)
-							myerror(-1, "FATAL: unable to createa db!");
-						if (fwrite(&dnode->fname, dnode->fnamelen, 1, hFile) != 1)
-							myerror(-1, "FATAL: unable to createa db!");
-					}
-				fclose(hFile);
-			}
+		{
+			void *error = save_db(weedit_db1, save);
+			if (error)
+				myerror(-1, error);
+		}
 	}
 	if (!quiet)
 	{
