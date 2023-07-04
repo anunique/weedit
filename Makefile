@@ -5,7 +5,7 @@
 #  btw: greets to my abjects sluts! - CW
 
 SHELL	= /bin/sh
-CC	= gcc
+CC	= cc
 CFLAGS	= -g -fstack-check
 LIBS	=
 TARGET	= weedit
