@@ -11,6 +11,10 @@ extern "C" {
 #define TABLE_SIZE 65536
 #define TABLE_MASK (TABLE_SIZE - 1)
 
+extern u_int8_t quiet, deldupes, forcescan;
+extern u_int8_t *buf;
+extern u_int64_t bytes, bytes2, dupes;
+
 typedef struct _dlink_fnode dlink_fnode;
 typedef struct _dlink_dnode dlink_dnode;
 
