@@ -28,22 +28,12 @@ char *id = "\n\n\n\n\n-CW was here-\n\n\n\n";
 #include "../include/io.h"
 #include "../include/crc32.h"
 #include "../include/sha1.h"
+#include "../include/comparedbs.h"
+#include "../include/error.h"
 
 u_int8_t quiet, deldupes, forcescan;
 u_int8_t *buf;
 u_int64_t bytes, bytes2, dupes;
-
-void myerror(__int32_t errcode, const char *bla, ...)
-{
-	char buffer[1024];
-	va_list args;
-	va_start(args, bla);
-	vsnprintf(buffer, 1024, bla, args);
-	printf("%s\n", buffer);
-	va_end(args);
-	if (errcode < 0)
-		exit(-1);
-}
 
 void checkdir(weedit_db *db, char *cwd)
 {
@@ -436,11 +426,9 @@ int main(int argc, char **argv)
 	u_int8_t truncatedb = 0, noadd = 0, deldupesfromdb = 0, printdb = 0, comparedb = 0;
 	char *dir_to_scan = 0;
 	u_int32_t i;
-	u_int32_t oldcrc32;
-	u_int64_t files, files2;
+	u_int64_t files;
 	float timeval;
 	struct timeval timer1, timer2;
-	FILE *hFile, *hFile2;
 	dlink_dnode *dnode, *dnode2;
 	dlink_fnode *fnode;
 	dlink_dlist *checksum;
@@ -582,123 +570,9 @@ int main(int argc, char **argv)
 
 	gettimeofday(&timer1, 0);
 
-	if (comparedb) //TODO: FIX THIS STUFF, JUST LOAD 2 DBS AND COMPARE EM, LETS NOT BOTHER FOR NOW
+	if (comparedb) 
 	{
-		dnode = (dlink_dnode *)calloc(1, CHUNK_SIZE);
-		if (!dnode)
-			myerror(-1, "FATAL: out of memory");
-		dnode2 = (dlink_dnode *)calloc(1, CHUNK_SIZE);
-		if (!dnode2)
-			myerror(-1, "FATAL: out of memory");
-		if (!(hFile = fopen(db1, "rb")))
-			myerror(-1, "FATAL: unable to open db1!");
-		if (!fread(tmp, 8, 1, hFile))
-			myerror(-1, "FATAL: unable to open db!");
-		if (memcmp(&tmp, "WEEDIT\4\0", 8))
-			myerror(-1, "FATAL: db incompatible!");
-		if (!fread(&i, 4, 1, hFile))
-			myerror(-1, "FATAL: unable to open db!");
-		if (i != 0x01020304)
-			myerror(-1, "FATAL: incompatible endian!");
-		if (fgetc(hFile) != sizeof(void *))
-			myerror(-1, "FATAL: sizeof(void *) incompatible!");
-		if (fgetc(hFile) != sizeof(time_t))
-			myerror(-1, "FATAL: sizeof(time_t) incompatible!");
-		if (fgetc(hFile) != 'C')
-			myerror(-1, "FATAL: db incompatible!");
-		if (fgetc(hFile) != 'W')
-			myerror(-1, "FATAL: db incompatible!");
-		if (!fread(&files, sizeof(u_int64_t), 1, hFile))
-			myerror(-1, "FATAL: unable to open db!");
-		if (!(hFile2 = fopen(db2, "rb")))
-			myerror(-1, "FATAL: unable to open db2!");
-		if (!fread(tmp, 8, 1, hFile2))
-			myerror(-1, "FATAL: unable to open db2!");
-		if (memcmp(&tmp, "WEEDIT\4\0", 8))
-			myerror(-1, "FATAL: db2 incompatible!");
-		if (!fread(&i, 4, 1, hFile2))
-			myerror(-1, "FATAL: unable to open db2!");
-		if (i != 0x01020304)
-			myerror(-1, "FATAL: incompatible endian!");
-		if (fgetc(hFile2) != sizeof(void *))
-			myerror(-1, "FATAL: sizeof(void *) incompatible!");
-		if (fgetc(hFile2) != sizeof(time_t))
-			myerror(-1, "FATAL: sizeof(time_t) incompatible!");
-		if (fgetc(hFile2) != 'C')
-			myerror(-1, "FATAL: db2 incompatible!");
-		if (fgetc(hFile2) != 'W')
-			myerror(-1, "FATAL: db2 incompatible!");
-		if (!fread(&files2, sizeof(u_int64_t), 1, hFile2))
-			myerror(-1, "FATAL: unable to open db2!");
-		oldcrc32 = 0xffffffff;
-	_comparenext1:
-		if (!files)
-			goto _compare;
-		if (!fread(&dnode->fnamelen, sizeof(u_int16_t), 1, hFile))
-			myerror(-1, "FATAL: unable to parse db1!");
-		if (!fread(&dnode->fnamecrc, sizeof(u_int32_t), 1, hFile))
-			myerror(-1, "FATAL: unable to parse db1!");
-		if (!fread(&dnode->chunkid, sizeof(u_int32_t), 1, hFile))
-			myerror(-1, "FATAL: unable to parse db1!");
-		if (!fread(&dnode->crc32, sizeof(u_int32_t), 1, hFile))
-			myerror(-1, "FATAL: unable to parse db1!");
-		if (!fread(&dnode->fsize, sizeof(u_int64_t), 1, hFile))
-			myerror(-1, "FATAL: unable to parse db1!");
-		if (!fread(&dnode->ctime, sizeof(time_t), 1, hFile))
-			myerror(-1, "FATAL: unable to parse db1!");
-		if (!fread(&dnode->mtime, sizeof(time_t), 1, hFile))
-			myerror(-1, "FATAL: unable to parse db1!");
-		if (!fread(&dnode->sha1, 20, 1, hFile))
-			myerror(-1, "FATAL: unable to parse db1!");
-		if (!fread(&dnode->fname, dnode->fnamelen, 1, hFile))
-			myerror(-1, "FATAL: unable to parse db1!");
-		files--;
-		if (!comparedb)
-			goto _compare;
-		comparedb = 0;
-	_comparenext2:
-		if (!files2)
-			goto _comparedone;
-		if (!fread(&dnode2->fnamelen, sizeof(u_int16_t), 1, hFile2))
-			myerror(-1, "FATAL: unable to parse db2!");
-		if (!fread(&dnode2->fnamecrc, sizeof(u_int32_t), 1, hFile2))
-			myerror(-1, "FATAL: unable to parse db2!");
-		if (!fread(&dnode2->chunkid, sizeof(u_int32_t), 1, hFile2))
-			myerror(-1, "FATAL: unable to parse db2!");
-		if (!fread(&dnode2->crc32, sizeof(u_int32_t), 1, hFile2))
-			myerror(-1, "FATAL: unable to parse db2!");
-		if (!fread(&dnode2->fsize, sizeof(u_int64_t), 1, hFile2))
-			myerror(-1, "FATAL: unable to parse db2!");
-		if (!fread(&dnode2->ctime, sizeof(time_t), 1, hFile2))
-			myerror(-1, "FATAL: unable to parse db2!");
-		if (!fread(&dnode2->mtime, sizeof(time_t), 1, hFile2))
-			myerror(-1, "FATAL: unable to parse db2!");
-		if (!fread(&dnode2->sha1, 20, 1, hFile2))
-			myerror(-1, "FATAL: unable to parse db2!");
-		if (!fread(&dnode2->fname, dnode2->fnamelen, 1, hFile2))
-			myerror(-1, "FATAL: unable to parse db2!");
-		files2--;
-	_compare:
-		if (files)
-			if (dnode->crc32 < dnode2->crc32)
-				goto _comparenext1;
-		if ((dnode->crc32 == dnode2->crc32) && (dnode->chunkid == dnode2->chunkid))
-			if (dnode->fsize == dnode2->fsize)
-			{
-				if (!memcmp(dnode->sha1, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 20))
-					goto _comparenext2;
-				if (!memcmp(dnode2->sha1, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 20))
-					goto _comparenext2;
-				if (!memcmp(dnode->sha1, dnode2->sha1, 20))
-					goto _comparenext2;
-			}
-		if (dnode2->crc32 != oldcrc32)
-			printf("%s\n", dnode2->fname);
-		oldcrc32 = dnode2->crc32;
-		goto _comparenext2;
-	_comparedone:
-		fclose(hFile);
-		fclose(hFile2);
+		comparedbs(db1, db2);
 	}
 	else
 	{
