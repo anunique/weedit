@@ -526,34 +526,12 @@ int main(int argc, char **argv)
 			printf("Save DB as            : %s\n", save);
 			if (dir_to_scan)
 				printf("Directory to scan     : %s\n", dir_to_scan);
-			if (deldupesfromdb)
-			{
-				printf("Delete dupes from DB   : YES\n");
-			}
-			else
-			{
-				printf("Delete dupes from DB  : NO\n");
-			}
-			if (truncatedb)
-				printf("Truncate DB           : YES\n");
-			else
-				printf("Truncate DB           : NO\n");
-			if (deldupes)
-				printf("Delete new dupes      : YES\n");
-			else
-				printf("Delete new dupes      : NO\n");
-			if (forcescan)
-				printf("Force filescan        : YES\n");
-			else
-				printf("Force filescan        : NO\n");
-			if (printdb)
-				printf("Print DB              : YES\n");
-			else
-				printf("Print DB              : NO\n");
-			if (noadd)
-				printf("Save DB               : NO\n");
-			else
-				printf("Save DB               : YES\n");
+			printf("Delete dupes from DB  : %s\n", deldupesfromdb ? "YES" : "NO");
+			printf("Truncate DB           : %s\n", truncatedb ? "YES" : "NO");
+			printf("Delete new dupes      : %s\n", deldupes ? "YES" : "NO");
+			printf("Force filescan        : %s\n", forcescan ? "YES" : "NO");
+			printf("Print DB              : %s\n", printdb ? "YES" : "NO");
+			printf("Save DB               : %s\n", noadd ? "NO" : "YES");
 			printf("Be quiet              : NO\n-----------------------------------------------\nDUPE List:\n");
 		}
 	}
