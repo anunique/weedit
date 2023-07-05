@@ -1,3 +1,3 @@
 #include <sys/types.h>
 
-void myerror(__int32_t errcode, const char *bla, ...);
+void myerror(int errcode, const char *bla, ...);

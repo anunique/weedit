@@ -1,9 +1,8 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <sys/types.h>
+#include <stdlib.h>
 
-void myerror(__int32_t errcode, const char *bla, ...)
+void myerror(int errcode, const char *bla, ...)
 {
 	char buffer[1024];
 	va_list args;
