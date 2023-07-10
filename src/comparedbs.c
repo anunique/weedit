@@ -18,7 +18,7 @@ int comparedbs(char *db1, char *db2)
     dlink_dnode *dnode, *dnode2;
     FILE *hFile, *hFile2;
     char tmp[5000];
-    u_int32_t i;
+    u_int64_t i;
     u_int64_t files, files2;
     u_int32_t oldcrc32;
     u_int8_t comparedb = 1;
@@ -35,9 +35,9 @@ int comparedbs(char *db1, char *db2)
         myerror(-1, "FATAL: unable to open db!");
     if (memcmp(&tmp, "WEEDIT\4\0", 8))
         myerror(-1, "FATAL: db incompatible!");
-    if (!fread(&i, 4, 1, hFile))
+    if (!fread(&i, 8, 1, hFile))
         myerror(-1, "FATAL: unable to open db!");
-    if (i != 0x01020304)
+    if (i != 0x0102030405060708)
         myerror(-1, "FATAL: incompatible endian!");
     if (fgetc(hFile) != sizeof(void *))
         myerror(-1, "FATAL: sizeof(void *) incompatible!");
@@ -55,9 +55,9 @@ int comparedbs(char *db1, char *db2)
         myerror(-1, "FATAL: unable to open db2!");
     if (memcmp(&tmp, "WEEDIT\4\0", 8))
         myerror(-1, "FATAL: db2 incompatible!");
-    if (!fread(&i, 4, 1, hFile2))
+    if (!fread(&i, 8, 1, hFile2))
         myerror(-1, "FATAL: unable to open db2!");
-    if (i != 0x01020304)
+    if (i != 0x0102030405060708)
         myerror(-1, "FATAL: incompatible endian!");
     if (fgetc(hFile2) != sizeof(void *))
         myerror(-1, "FATAL: sizeof(void *) incompatible!");
@@ -77,7 +77,7 @@ _comparenext1:
         myerror(-1, "FATAL: unable to parse db1!");
     if (!fread(&dnode->fnamecrc, sizeof(u_int32_t), 1, hFile))
         myerror(-1, "FATAL: unable to parse db1!");
-    if (!fread(&dnode->chunkid, sizeof(u_int32_t), 1, hFile))
+    if (!fread(&dnode->chunkcrc32, sizeof(u_int32_t), 1, hFile))
         myerror(-1, "FATAL: unable to parse db1!");
     if (!fread(&dnode->crc32, sizeof(u_int32_t), 1, hFile))
         myerror(-1, "FATAL: unable to parse db1!");
@@ -102,7 +102,7 @@ _comparenext2:
         myerror(-1, "FATAL: unable to parse db2!");
     if (!fread(&dnode2->fnamecrc, sizeof(u_int32_t), 1, hFile2))
         myerror(-1, "FATAL: unable to parse db2!");
-    if (!fread(&dnode2->chunkid, sizeof(u_int32_t), 1, hFile2))
+    if (!fread(&dnode2->chunkcrc32, sizeof(u_int32_t), 1, hFile2))
         myerror(-1, "FATAL: unable to parse db2!");
     if (!fread(&dnode2->crc32, sizeof(u_int32_t), 1, hFile2))
         myerror(-1, "FATAL: unable to parse db2!");
@@ -121,7 +121,7 @@ _compare:
     if (files)
         if (dnode->crc32 < dnode2->crc32)
             goto _comparenext1;
-    if ((dnode->crc32 == dnode2->crc32) && (dnode->chunkid == dnode2->chunkid))
+    if ((dnode->crc32 == dnode2->crc32) && (dnode->chunkcrc32 == dnode2->chunkcrc32))
         if (dnode->fsize == dnode2->fsize)
         {
             if (!memcmp(dnode->sha1, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 20))

@@ -1,5 +1,6 @@
 // bla here i go with the code
 // no i wont add comments - CW
+// before you even think about bitching, the kernel will free any unused memory on exit! no need to bother about cleaning up.
 // TODO: scan for TODO
 
 char *ver = "\nWeedIt 4.0.0-dev by daniel (at) k0o (dot) org\n";
@@ -60,17 +61,12 @@ int main(int argc, char **argv)
 	char *paramv;
 	int paramn;
 	char *load = 0, *save = 0;
-	char *db1 = 0, *db2 = 0;
-	u_int8_t truncatedb = 0, noadd = 0, deldupesfromdb = 0, printdb = 0, comparedb = 0;
+	char *dbname1 = 0, *dbname2 = 0;
+	unsigned char truncatedb = 0, noadd = 0, deldupesfromdb = 0, printdb = 0, comparedb = 0;
 	char *dir_to_scan = 0;
-	u_int32_t i;
-	u_int64_t files;
+	u_int64_t files = 0;
 	float timeval;
 	struct timeval timer1, timer2;
-	dlink_dnode *dnode, *dnode2;
-	dlink_fnode *fnode;
-	dlink_dlist *checksum;
-	dlink_flist *fname;
 	if (argc < 2)
 		usage(argv[0]);
 	quiet = 0;
@@ -90,11 +86,11 @@ int main(int argc, char **argv)
 				if (paramn == argc)
 					usage(argv[0]);
 				else
-					db1 = argv[paramn++];
+					dbname1 = argv[paramn++];
 				if (paramn == argc)
 					usage(argv[0]);
 				else
-					db2 = argv[paramn++];
+					dbname2 = argv[paramn++];
 				break;
 			case 'd':
 				deldupesfromdb = 1;
@@ -156,7 +152,7 @@ int main(int argc, char **argv)
 		printf("%s settings:\n", argv[0]);
 		if (comparedb)
 		{
-			printf("Compare '%s' with '%s' and print missing files\nFiles Missing in '%s':\n", db1, db2, db1);
+			printf("Compare '%s' with '%s' and print missing files\nFiles Missing in '%s':\n", dbname1, dbname2, dbname1);
 		}
 		else
 		{
@@ -173,51 +169,27 @@ int main(int argc, char **argv)
 			printf("Be quiet              : NO\n-----------------------------------------------\nDUPE List:\n");
 		}
 	}
-
-	weedit_db *weedit_db1;
-	weedit_db1 = calloc(1, sizeof(weedit_db));
-	if (weedit_db1 == 0)
+	weedit_db *db1;
+	db1 = calloc(1, sizeof(weedit_db));
+	if (db1 == 0)
 	{
 		myerror(-1, "FATAL: out of memory");
 	}
-
-	dlink_dnode **checksumptr = weedit_db1->checksumptr;
-	dlink_fnode **fnameptr = weedit_db1->fnameptr;
-
 	gettimeofday(&timer1, 0);
-
-	if (comparedb) 
+	if (comparedb)
 	{
-		comparedbs(db1, db2);
+		comparedbs(dbname1, dbname2);
 	}
 	else
 	{
-		fname = &weedit_db1->fname;
-		checksum = &weedit_db1->checksum;
 		dupes = 0;
 		bytes = 0;
 		bytes2 = 0;
 		if (!truncatedb)
 		{
-			void *error = load_db(weedit_db1, load);
+			void *error = load_db(db1, load);
 			if (error)
 				myerror(-1, error);
-		}
-		if (!fname->head)
-		{
-			fnode = (dlink_fnode *)calloc(1, sizeof(dlink_fnode));
-			if (!fnode)
-				myerror(-1, "Fatal: out of memory");
-			dnode = (dlink_dnode *)calloc(1, sizeof(dlink_dnode) + 1);
-			if (!dnode)
-				myerror(-1, "Fatal: out of memory");
-			fnode->data = dnode;
-			fname->head = fnode;
-			fname->tail = fnode;
-			fnameptr[0] = fnode;
-			checksum->head = dnode;
-			checksum->tail = dnode;
-			checksumptr[0] = dnode;
 		}
 		if (dir_to_scan)
 		{
@@ -233,89 +205,107 @@ int main(int argc, char **argv)
 				exit(-1);
 			}
 			getcwd(tmp, sizeof(tmp));
-			checkdir(weedit_db1, tmp);
+			checkdir(db1, tmp);
 			chdir(home);
 		}
 		if (deldupesfromdb)
 		{
-			dnode = checksum->head;
-		_deldupes1:
-			if (!dnode)
-				goto _deldupesdone;
-			if (!dnode->fnamelen)
+			for (int i = 0; i < TABLE_SIZE; i++)
 			{
-				dnode = dnode->next;
-				goto _deldupes1;
-			}
-			dnode2 = dnode->next;
-			goto _deldupes2;
-		_deldupes2:
-			if (!dnode2)
-				goto _deldupesdone;
-			if (!dnode2->fnamelen)
-			{
-				dnode2 = dnode2->next;
-				goto _deldupes2;
-			}
-			if (dnode->crc32 != dnode2->crc32)
-			{
-				dnode = dnode2->next;
-				goto _deldupes1;
-			}
-			if (dnode->fsize != dnode2->fsize)
-			{
-				dnode = dnode2->next;
-				goto _deldupes1;
-			}
-			if (memcmp(dnode->sha1, dnode2->sha1, 20))
-			{
-				dnode = dnode2->next;
-				goto _deldupes1;
-			}
-			// need a better way to do it. still better than v2.0.x!
-			dupes++;
-			if (deldupes)
-			{
-				if (!unlink(dnode2->fname))
+				dlink_dnode *dnode = db1->checksumptr[i];
+				dlink_dnode *dnode2 = 0;
+			_deldupes1:
+				if (!dnode)
+					goto _deldupesdone;
+				if (!dnode->fnamelen)
 				{
-					dnode->fnamelen = 0;
-					if (!quiet)
-						printf("'%s' IS a DUPE with '%s' - DELETED\n", dnode2->fname, dnode->fname);
+					dnode = dnode->next;
+					goto _deldupes1;
+				}
+				dnode2 = dnode->next;
+				goto _deldupes2;
+			_deldupes2:
+				if (!dnode2)
+					goto _deldupesdone;
+				if (!dnode2->fnamelen)
+				{
+					dnode2 = dnode2->next;
+					goto _deldupes2;
+				}
+				if (dnode->crc32 != dnode2->crc32)
+				{
+					dnode = dnode2->next;
+					goto _deldupes1;
+				}
+				if (dnode->fsize != dnode2->fsize)
+				{
+					dnode = dnode2->next;
+					goto _deldupes1;
+				}
+				if (memcmp(dnode->sha1, dnode2->sha1, 20))
+				{
+					dnode = dnode2->next;
+					goto _deldupes1;
+				}
+				// need a better way to do it. still better than v2.0.x!
+				dupes++;
+				if (deldupes)
+				{
+					if (!unlink(dnode2->fname))
+					{
+						dnode2->fnamelen = 0;
+						if (!quiet)
+							printf("'%s' IS a DUPE with '%s' - DELETED\n", dnode2->fname, dnode->fname);
+					}
+					else if (!quiet)
+						printf("'%s' IS a DUPE with '%s' - unable to delete!!!\n", dnode2->fname, dnode->fname);
 				}
 				else if (!quiet)
-					printf("'%s' IS a DUPE with '%s' - unable to delete!!!\n", dnode2->fname, dnode->fname);
+					printf("'%s' IS a DUPE with '%s'\n", dnode2->fname, dnode->fname);
+				dnode2 = dnode2->next;
+				goto _deldupes2;
+			_deldupesdone:
 			}
-			else if (!quiet)
-				printf("'%s' IS a DUPE with '%s'\n", dnode2->fname, dnode->fname);
-			dnode2 = dnode2->next;
-			goto _deldupes2;
-		_deldupesdone:;
 		}
 		if (printdb)
 		{
 			if (!quiet)
 				printf("CHUNKID  | CRC32    | Filesize         | SHA1                                     | StatusChangeTime | ModificationTime | Filename\n");
-			for (dlink_dnode *node = checksum->head; node != NULL; node = node->next)
-				if (node->fnamelen)
+			for (int i = 0; i < TABLE_SIZE; i++)
+			{
+				dlink_dnode *dnode = db1->checksumptr[i];
+				while (dnode)
 				{
-					printf("%08X | ", node->chunkid);
-					printf("%08X | ", node->crc32);
-					printf("%016"PRIx64" | ", node->fsize);
-					for (i = 0; i < 20; i++)
-						printf("%02X", node->sha1[i]);
-					printf(" | ");
-					printf("%016"PRIx64" | ", node->ctime);
-					printf("%016"PRIx64" | ", node->mtime);
-					printf("%s\n", node->fname);
+					if (dnode->fnamelen)
+					{
+						printf("%08X | ", dnode->chunkcrc32);
+						printf("%08X | ", dnode->crc32);
+						printf("%016" PRIx64 " | ", dnode->fsize);
+						for (int j = 0; j < 20; j++)
+							printf("%02X", dnode->sha1[j]);
+						printf(" | ");
+						printf("%016" PRIx64 " | ", dnode->ctime);
+						printf("%016" PRIx64 " | ", dnode->mtime);
+						printf("%s\n", dnode->fname);
+					}
+					dnode = dnode->next;
 				}
+			}
 		}
 		files = 0;
-		for (dlink_dnode *node = checksum->head; node != NULL; node = node->next)
-			if (node->fnamelen)
-				files++;
+		for (int i = 0; i < TABLE_SIZE; i++)
+		{
+			dlink_dnode *dnode = db1->checksumptr[i];
+			while (dnode)
+			{
+				if (dnode->fnamelen)
+					files++;
+				dnode = dnode->next;
+			}
+		}
 		if (!noadd)
 		{
-			void *error = save_db(weedit_db1, save);
+			void *error = save_db(db1, save);
 			if (error)
 				myerror(-1, error);
 		}
@@ -324,7 +314,7 @@ int main(int argc, char **argv)
 	{
 		gettimeofday(&timer2, 0);
 		timeval = (float)(timer2.tv_sec - timer1.tv_sec) + ((float)(timer2.tv_usec - timer1.tv_usec) / 1000000);
-		printf("\n\n%"PRIu64" bytes scanned - %"PRIu64" bytes processed - %"PRIu64" entries - %"PRIu64" dupes - needed time: %f seconds\n", bytes, bytes2, files, dupes, timeval);
+		printf("\n\n%" PRIu64 " bytes read - %" PRIu64 " bytes in filesize scanned - %" PRIu64 " entries - %" PRIu64 " dupes - needed time: %f seconds\n", bytes, bytes2, files, dupes, timeval);
 		printf("Scanspeed: %f MB per second\n", (float)bytes / timeval / 1000000);
 	}
 	return 0;

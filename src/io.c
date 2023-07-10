@@ -11,31 +11,18 @@
 
 void *load_db(weedit_db *db, char *dbname)
 {
-    FILE *hFile;
-    u_int8_t tmp[5000];
-    u_int32_t i;
-    u_int64_t files;
-    dlink_dnode *dnode, *dnode2;
-    dlink_fnode *fnode, *fnode2;
-    u_int16_t datasize;
-    dlink_dnode **checksumptr = db->checksumptr;
-    dlink_fnode **fnameptr = db->fnameptr;
-    u_int16_t entryptr, entryptr2;
-    dlink_dlist *checksum;
-    dlink_flist *fname;
-    fname = &db->fname;
-    checksum = &db->checksum;
-    hFile = fopen(dbname, "rb");
+    FILE *hFile = fopen(dbname, "rb");
     if (!hFile)
         return 0;
-
-    if (!fread(tmp, 8, 1, hFile))
+    u_int8_t fileheader[8];
+    if (!fread(fileheader, 8, 1, hFile))
         return "FATAL: unable to open db!";
-    if (memcmp(&tmp, "WEEDIT\4\0", 8))
+    if (memcmp(&fileheader, "WEEDIT\4\0", 8))
         return "FATAL: db incompatible!";
-    if (!fread(&i, 4, 1, hFile))
+    u_int64_t j;
+    if (!fread(&j, 8, 1, hFile))
         return "FATAL: unable to open db!";
-    if (i != 0x01020304)
+    if (j != 0x0102030405060708)
         return "FATAL: incompatible endian!";
     if (fgetc(hFile) != sizeof(void *))
         return "FATAL: sizeof(void *) incompatible!";
@@ -45,144 +32,113 @@ void *load_db(weedit_db *db, char *dbname)
         return "FATAL: db incompatible!";
     if (fgetc(hFile) != 'W')
         return "FATAL: db incompatible!";
-    if (!fread(&files, sizeof(u_int64_t), 1, hFile))
+    u_int64_t files;
+    if (!fread(&files, sizeof(files), 1, hFile))
         return "FATAL: unable to open db!";
-    if (files)
+    u_int16_t fnamelen;
+    u_int32_t dnode_idx_old = -1;
+    dlink_dnode *dnode = 0;
+    while (files)
     {
-        if (!fread(&datasize, sizeof(u_int16_t), 1, hFile))
+        if (!fread(&fnamelen, sizeof(u_int16_t), 1, hFile))
             return "FATAL: unable to open db!";
-        fnode2 = (dlink_fnode *)calloc(1, sizeof(dlink_fnode));
-        if (!fnode2)
+        dlink_fnode *fnode_new = (dlink_fnode *)calloc(1, sizeof(dlink_fnode));
+        if (!fnode_new)
             return "Fatal: out of memory";
-        dnode2 = (dlink_dnode *)calloc(1, sizeof(dlink_dnode) + datasize);
-        if (!dnode2)
+        dlink_dnode *dnode_new = (dlink_dnode *)calloc(1, sizeof(dlink_dnode) + fnamelen);
+        if (!dnode_new)
             return "Fatal: out of memory";
-        fnode2->data = dnode2;
-        dnode2->fnamelen = datasize;
-        if (!fread(&dnode2->fnamecrc, sizeof(u_int32_t), 1, hFile))
+        fnode_new->data = dnode_new;
+        dnode_new->fnamelen = fnamelen;
+        if (!fread(&dnode_new->fnamecrc, sizeof(u_int32_t), 1, hFile))
             return "FATAL: unable to open db!";
-        if (!fread(&dnode2->chunkid, sizeof(u_int32_t), 1, hFile))
+        if (!fread(&dnode_new->chunkcrc32, sizeof(u_int32_t), 1, hFile))
             return "FATAL: unable to open db!";
-        if (!fread(&dnode2->crc32, sizeof(u_int32_t), 1, hFile))
+        if (!fread(&dnode_new->crc32, sizeof(u_int32_t), 1, hFile))
             return "FATAL: unable to open db!";
-        if (!fread(&dnode2->fsize, sizeof(u_int64_t), 1, hFile))
+        if (!fread(&dnode_new->fsize, sizeof(u_int64_t), 1, hFile))
             return "FATAL: unable to open db!";
-        if (!fread(&dnode2->ctime, sizeof(time_t), 1, hFile))
+        if (!fread(&dnode_new->ctime, sizeof(time_t), 1, hFile))
             return "FATAL: unable to open db!";
-        if (!fread(&dnode2->mtime, sizeof(time_t), 1, hFile))
+        if (!fread(&dnode_new->mtime, sizeof(time_t), 1, hFile))
             return "FATAL: unable to open db!";
-        if (!fread(&dnode2->sha1, 20, 1, hFile))
+        if (!fread(&dnode_new->sha1, 20, 1, hFile))
             return "FATAL: unable to open db!";
-        if (!fread(&dnode2->fname, datasize, 1, hFile))
+        if (!fread(&dnode_new->fname, fnamelen, 1, hFile))
             return "FATAL: unable to open db!";
-        fname->head = fnode2;
-        fname->tail = fnode2;
-        fnameptr[0] = fnode2;
-        entryptr = (dnode2->fnamecrc & 0xffff0000) >> 16;
-        fnameptr[entryptr] = fnode2;
-        checksum->head = dnode2;
-        checksumptr[0] = dnode2;
-        entryptr = (dnode2->crc32 & 0xffff0000) >> 16;
-        checksumptr[entryptr] = dnode2;
-        files--;
-        while (files)
+        u_int32_t dnode_idx = dnode_new->chunkcrc32 & TABLE_MASK;
+        if (dnode_idx_old != dnode_idx)
         {
-            if (!fread(&datasize, sizeof(u_int16_t), 1, hFile))
-                return "FATAL: unable to open db!";
-            fnode = (dlink_fnode *)calloc(1, sizeof(dlink_fnode));
-            if (!fnode)
-                return "Fatal: out of memory";
-            dnode = (dlink_dnode *)calloc(1, sizeof(dlink_dnode) + datasize);
-            if (!dnode)
-                return "Fatal: out of memory";
-            fnode->data = dnode;
-            dnode->fnamelen = datasize;
-            if (!fread(&dnode->fnamecrc, sizeof(u_int32_t), 1, hFile))
-                return "FATAL: unable to open db!";
-            if (!fread(&dnode->chunkid, sizeof(u_int32_t), 1, hFile))
-                return "FATAL: unable to open db!";
-            if (!fread(&dnode->crc32, sizeof(u_int32_t), 1, hFile))
-                return "FATAL: unable to open db!";
-            if (!fread(&dnode->fsize, sizeof(u_int64_t), 1, hFile))
-                return "FATAL: unable to open db!";
-            if (!fread(&dnode->ctime, sizeof(time_t), 1, hFile))
-                return "FATAL: unable to open db!";
-            if (!fread(&dnode->mtime, sizeof(time_t), 1, hFile))
-                return "FATAL: unable to open db!";
-            if (!fread(&dnode->sha1, 20, 1, hFile))
-                return "FATAL: unable to open db!";
-            if (!fread(&dnode->fname, datasize, 1, hFile))
-                return "FATAL: unable to open db!";
-            entryptr = (dnode->crc32 & 0xffff0000) >> 16;
-            if (!checksumptr[entryptr])
-                checksumptr[entryptr] = dnode;
-            dnode2->next = dnode;
-            dnode->prev = dnode2;
-            entryptr = (dnode->fnamecrc & 0xffff0000) >> 16;
-            entryptr2 = entryptr;
-            while (!fnameptr[entryptr2])
-                entryptr2--;
-            fnode2 = fnameptr[entryptr2];
-            while (1)
+            dnode = db->checksumptr[dnode_idx];
+            dnode_idx_old = dnode_idx;
+            if (dnode == 0)
             {
-                if (dnode->fnamecrc < fnode2->data->fnamecrc)
-                {
-                    if (fnode2 == fnameptr[entryptr] || !fnameptr[entryptr])
-                        fnameptr[entryptr] = fnode;
-                    if (fname->head == fnode2)
-                    {
-                        fnode->next = fname->head;
-                        fnode->next->prev = fnode;
-                        fname->head = fnode;
-                        fnameptr[0] == fnode;
-                    }
-                    else
-                    {
-                        if (fnode2->prev)
-                            fnode2->prev->next = fnode;
-                        fnode->next = fnode2;
-                        fnode->prev = fnode2->prev;
-                        fnode2->prev = fnode;
-                    }
-                    break;
-                }
-                fnode2 = fnode2->next;
-                if (!fnode2)
-                {
-                    fnode->prev = fname->tail;
-                    fnode->prev->next = fnode;
-                    fname->tail = fnode;
-                    if (!fnameptr[entryptr])
-                        fnameptr[entryptr] = fnode;
-                    break;
-                }
+                db->checksumptr[dnode_idx] = dnode_new;
             }
-            dnode2 = dnode;
-            files--;
+            dnode = dnode_new;
         }
+        else
+        {
+            dnode->next = dnode_new;
+            dnode_new->prev = dnode;
+            dnode = dnode_new;
+        }
+        dlink_fnode *fnode_cur = db->fnameptr[dnode_new->fnamecrc & TABLE_MASK];
+        dlink_fnode *fnode_old = 0;
+    _find_file:
+        if (!fnode_cur)
+            goto _new_file;
+        if (dnode_new->fnamecrc <= fnode_cur->data->fnamecrc)
+            goto _new_file;
+        fnode_old = fnode_cur;
+        fnode_cur = fnode_cur->next;
+        goto _find_file;
+    _new_file:
+        if (fnode_old == 0)
+        {
+            db->fnameptr[dnode_new->fnamecrc & TABLE_MASK] = fnode_new;
+            fnode_new->next = fnode_cur;
+            if (fnode_cur)
+                fnode_cur->prev = fnode_new;
+        }
+        else if (fnode_cur == 0)
+        {
+            fnode_old->next = fnode_new;
+            fnode_new->prev = fnode_old;
+        }
+        else
+        {
+            fnode_new->next = fnode_cur;
+            fnode_new->prev = fnode_old;
+            fnode_old->next = fnode_new;
+            fnode_cur->prev = fnode_new;
+        }
+        files--;
     }
-    checksum->tail = dnode2;
     fclose(hFile);
     return 0;
 }
 
 void *save_db(weedit_db *db, char *dbname)
 {
-    u_int64_t files = 0, checksums;
+    u_int64_t files = 0;
     FILE *hFile;
-    u_int32_t i;
-    for (dlink_dnode *dnode = db->checksum.head; dnode != NULL; dnode = dnode->next)
-        if (dnode->fnamelen)
-            files++;
-
+    for (int i = 0; i < TABLE_SIZE; i++)
+    {
+        dlink_dnode *dnode = db->checksumptr[i];
+        while (dnode)
+        {
+            if (dnode->fnamelen)
+                files++;
+            dnode = dnode->next;
+        }
+    }
     if ((hFile = fopen(dbname, "wb")) == 0)
         return "FATAL: unable to save database!";
-
-    checksums = files;
     if (fwrite("WEEDIT\4\0", 8, 1, hFile) != 1)
         return "FATAL: unable to createa db!";
-    i = 0x01020304;
-    if (fwrite(&i, 4, 1, hFile) != 1)
+    u_int64_t j = 0x0102030405060708;
+    if (fwrite(&j, 8, 1, hFile) != 1)
         return "FATAL: unable to createa db!";
     if (fputc(sizeof(void *), hFile) != sizeof(void *))
         return "FATAL: unable to createa db!";
@@ -194,31 +150,35 @@ void *save_db(weedit_db *db, char *dbname)
         return "FATAL: unable to createa db!";
     if (fwrite(&files, sizeof(u_int64_t), 1, hFile) != 1)
         return "FATAL: unable to createa db!";
-    for (dlink_dnode *dnode = db->checksum.head; dnode != NULL; dnode = dnode->next)
-        if (dnode->fnamelen)
+    for (int i = 0; i < TABLE_SIZE; i++)
+    {
+        dlink_dnode *dnode = db->checksumptr[i];
+        while (dnode)
         {
-            if (checksums == 0)
-                return "FATAL: db writing error!";
-            checksums--;
-            if (fwrite(&dnode->fnamelen, sizeof(u_int16_t), 1, hFile) != 1)
-                return "FATAL: unable to createa db!";
-            if (fwrite(&dnode->fnamecrc, sizeof(u_int32_t), 1, hFile) != 1)
-                return "FATAL: unable to createa db!";
-            if (fwrite(&dnode->chunkid, sizeof(u_int32_t), 1, hFile) != 1)
-                return "FATAL: unable to createa db!";
-            if (fwrite(&dnode->crc32, sizeof(u_int32_t), 1, hFile) != 1)
-                return "FATAL: unable to createa db!";
-            if (fwrite(&dnode->fsize, sizeof(u_int64_t), 1, hFile) != 1)
-                return "FATAL: unable to createa db!";
-            if (fwrite(&dnode->ctime, sizeof(time_t), 1, hFile) != 1)
-                return "FATAL: unable to createa db!";
-            if (fwrite(&dnode->mtime, sizeof(time_t), 1, hFile) != 1)
-                return "FATAL: unable to createa db!";
-            if (fwrite(&dnode->sha1, 20, 1, hFile) != 1)
-                return "FATAL: unable to createa db!";
-            if (fwrite(&dnode->fname, dnode->fnamelen, 1, hFile) != 1)
-                return "FATAL: unable to createa db!";
+            if (dnode->fnamelen)
+            {
+                if (fwrite(&dnode->fnamelen, sizeof(u_int16_t), 1, hFile) != 1)
+                    return "FATAL: unable to createa db!";
+                if (fwrite(&dnode->fnamecrc, sizeof(u_int32_t), 1, hFile) != 1)
+                    return "FATAL: unable to createa db!";
+                if (fwrite(&dnode->chunkcrc32, sizeof(u_int32_t), 1, hFile) != 1)
+                    return "FATAL: unable to createa db!";
+                if (fwrite(&dnode->crc32, sizeof(u_int32_t), 1, hFile) != 1)
+                    return "FATAL: unable to createa db!";
+                if (fwrite(&dnode->fsize, sizeof(u_int64_t), 1, hFile) != 1)
+                    return "FATAL: unable to createa db!";
+                if (fwrite(&dnode->ctime, sizeof(time_t), 1, hFile) != 1)
+                    return "FATAL: unable to createa db!";
+                if (fwrite(&dnode->mtime, sizeof(time_t), 1, hFile) != 1)
+                    return "FATAL: unable to createa db!";
+                if (fwrite(&dnode->sha1, 20, 1, hFile) != 1)
+                    return "FATAL: unable to createa db!";
+                if (fwrite(&dnode->fname, dnode->fnamelen, 1, hFile) != 1)
+                    return "FATAL: unable to createa db!";
+            }
+            dnode = dnode->next;
         }
+    }
     fclose(hFile);
     return 0;
 }
