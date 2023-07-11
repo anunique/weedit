@@ -68,6 +68,10 @@ int main(int argc, char **argv)
 	u_int64_t files = 0;
 	float timeval;
 	struct timeval timer1, timer2;
+	if (sizeof(off_t) != 8)
+	{
+		myerror(-1, "this must be compiled with large file support\n");
+	}
 	if (argc < 2)
 		usage(argv[0]);
 	quiet = 0;
@@ -170,12 +174,6 @@ int main(int argc, char **argv)
 			printf("Be quiet              : NO\n-----------------------------------------------\nDUPE List:\n");
 		}
 	}
-	weedit_db *db1;
-	db1 = calloc(1, sizeof(weedit_db));
-	if (db1 == 0)
-	{
-		myerror(-1, "FATAL: out of memory");
-	}
 	gettimeofday(&timer1, 0);
 	if (comparedb)
 	{
@@ -183,6 +181,12 @@ int main(int argc, char **argv)
 	}
 	else
 	{
+		weedit_db *db1;
+		db1 = calloc(1, sizeof(weedit_db));
+		if (db1 == 0)
+		{
+			myerror(-1, "FATAL: out of memory");
+		}
 		dupes = 0;
 		bytes = 0;
 		bytes2 = 0;
@@ -238,6 +242,7 @@ int main(int argc, char **argv)
 				}
 			}
 		}
+		//TODO: lemme update this one on the fly
 		files = 0;
 		for (int i = 0; i < TABLE_SIZE; i++)
 		{

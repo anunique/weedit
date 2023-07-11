@@ -40,11 +40,14 @@ _readdir:
 	}
 	char fname[5000];
 	snprintf(fname, sizeof(fname), "%s/%s", cwd, de->d_name);
-	struct stat64 stat_buf;
-	if (lstat64(fname, &stat_buf))
+	struct stat stat_buf;
+	if (lstat(fname, &stat_buf))
 		goto _readdir;
 	if (S_ISLNK(stat_buf.st_mode))
+	{
+		printf("LINK: %s\n", fname);
 		goto _readdir;
+	}
 	if (S_ISDIR(stat_buf.st_mode))
 	{
 		if (strcmp(de->d_name, "..") && strcmp(de->d_name, "."))
@@ -145,7 +148,7 @@ _update_data:
 	dnode_new->mtime = stat_buf.st_mtime;
 	dnode_new->fsize = stat_buf.st_size;
 	bytes2 += dnode_new->fsize;
-	FILE *hFile = fopen64(fname, "rb");
+	FILE *hFile = fopen(fname, "rb");
 	if (!hFile)
 	{
 		if (!quiet)
@@ -207,7 +210,7 @@ _find_dnode:
 				fclose(hFile);
 				hFile = 0;
 			}
-			FILE *hFile = fopen64(dnode_cur->fname, "rb");
+			FILE *hFile = fopen(dnode_cur->fname, "rb");
 			if (!hFile)
 			{
 				if (!quiet)
