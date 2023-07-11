@@ -178,6 +178,27 @@ _update_data:
 		dnode_new->crc32 = chunkcrc32;
 		fclose(hFile);
 		hFile = 0;
+	} 
+	else if (forcescan)
+	{
+		SHA1_CTX sha1;
+		SHA1_Init(&sha1);
+		u_int32_t filecrc32 = 0xffffffff;
+		while (bytesread != 0)
+		{
+			SHA1_Update(&sha1, buf, bytesread);
+			filecrc32 = crc32(filecrc32, buf, bytesread);
+			bytesread = fread(buf, 1, CHUNK_SIZE, hFile);
+			bytes += bytesread;
+		}
+		SHA1_Final(&sha1, dnode_new->sha1);
+		dnode_new->crc32 = filecrc32 ^ 0xffffffff;
+		if (!feof(hFile))
+		{
+			myerror(0, "error reading file %s\n", fname);
+		}
+		fclose(hFile);
+		hFile = 0;
 	}
 	dlink_dnode *dnode_old = 0;
 _find_dnode:
@@ -217,7 +238,7 @@ _find_dnode:
 					myerror(0, "ERROR: unable to open '%s' (%s)\n", fname, strerror(errno));
 				dnode_cur->fnamelen = 0;
 			}
-			else 
+			else
 			{
 				SHA1_CTX sha1;
 				SHA1_Init(&sha1);

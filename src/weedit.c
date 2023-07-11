@@ -43,7 +43,7 @@ void usage(char *fname)
 	printf("USAGE: %s -cdflnpqstuv [[DB1] [DB2]] [db to load] [db to save] [directory to scan]\n", fname);
 	printf("\tc [DB1] [DB2]= compare DB1 with DB2\n");
 	printf("\td = scan for dupes saved in DB\n");
-	printf("\tf = force weedit to calculate sha1\n");
+	printf("\tf = force weedit to calculate checksums\n");
 	printf("\tl [DB] = load name given\n");
 	printf("\tn = dont add files to db (dont save it)\n");
 	printf("\tp = print database\n");
