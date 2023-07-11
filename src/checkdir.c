@@ -166,7 +166,7 @@ _update_data:
 	bytes += bytesread;
 	unsigned long chunkcrc32 = crc32(0xffffffff, buf, bytesread) ^ 0xffffffff;
 	dnode_cur = db->checksumptr[chunkcrc32 & TABLE_MASK];
-	if (dnode_new->fsize <= CHUNK_SIZE)
+	if (feof(hFile))
 	{
 		SHA1_CTX sha1;
 		SHA1_Init(&sha1);
@@ -200,6 +200,10 @@ _find_dnode:
 				}
 				SHA1_Final(&sha1, dnode_new->sha1);
 				dnode_new->crc32 = filecrc32 ^ 0xffffffff;
+				if (!feof(hFile))
+				{
+					myerror(0, "error reading file %s\n", fname);
+				}
 				fclose(hFile);
 				hFile = 0;
 			}
@@ -224,6 +228,10 @@ _find_dnode:
 				}
 				SHA1_Final(&sha1, dnode_cur->sha1);
 				dnode_cur->crc32 = filecrc32 ^ 0xffffffff;
+				if (!feof(hFile))
+				{
+					myerror(0, "error reading file %s\n", dnode_cur->fname);
+				}
 				fclose(hFile);
 				hFile = 0;
 			}
